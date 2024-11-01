@@ -2,12 +2,24 @@ const express=require("express");
 const connectDB=require("./config/database");
 const app=express();
 const User=require("./models/user");
+const {validateSignUpdata}=require("./utils/validation")
+const bcrypt= require("bcrypt")
+
 app.use(express.json())
 
 app.post("/signup",async (req,res)=>{
-    const user=new User(req.body)
+   
     try{
+        validateSignUpdata(req);
+        const {firstName,lastName,emailId,password }= req.body;
 
+        const passwordHash=await bcrypt.hash(password, 10)
+        const user=new User({
+            firstName,
+            lastName,
+            emailId,
+            password:passwordHash,
+        })
         await user.save();
         res.send("data send")
     }
@@ -68,6 +80,25 @@ app.patch("/user",async (req,res)=>{
         res.status(400).send("update failed"+err.message);
     }
 })
+
+app.post("/login", async (req,res)=>{
+    try {
+        const {emailId,password}=req.body;
+        const user= await User.findOne({emailId:emailId});
+        if(!user){
+            throw new Error("Invalid credentials");
+        }
+        const isPasswordValid=await bcrypt.compare(password,user.password);
+        if(isPasswordValid){
+            res.send("login successful");
+        }
+        else{
+            throw new Error("Invalid credentials");
+        }
+    } catch (error) {
+        res.status(400).send("ERR : "+ error.message);
+    }
+});
 
 connectDB().then(() => {
     console.log("database connected");
